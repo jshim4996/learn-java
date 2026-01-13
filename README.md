@@ -1,6 +1,6 @@
 # learn-java
 
-> 🤖 AI가 가르치고, 사람이 배운다 - Spring Boot 백엔드 학습 실험
+> 🤖 AI가 가르치고, 사람이 배운다 - Spring Boot 백엔드 학습
 
 ---
 
