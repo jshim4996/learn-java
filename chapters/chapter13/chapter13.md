@@ -1,242 +1,266 @@
-# Chapter 13. 제네릭 (Generics)
+# Chapter 13. 람다식
 
-> 제네릭은 타입을 파라미터화하여 컴파일 시점에 타입 안전성을 보장하는 기능
-
----
-
-## 제네릭이란?
-
-### 제네릭을 사용하는 이유
-
-```java
-// 제네릭 없이 - 런타임에 에러 발생 가능
-List list = new ArrayList();
-list.add("문자열");
-list.add(100);  // 의도치 않은 타입도 추가 가능
-String str = (String) list.get(1);  // ClassCastException!
-
-// 제네릭 사용 - 컴파일 시점에 타입 체크
-List<String> list = new ArrayList<>();
-list.add("문자열");
-list.add(100);  // 컴파일 에러! 타입 불일치
-String str = list.get(0);  // 캐스팅 불필요
-```
-
-### 제네릭의 장점
-1. **컴파일 시 타입 체크** - 런타임 에러 방지
-2. **불필요한 캐스팅 제거** - 코드 가독성 향상
-3. **재사용성** - 다양한 타입에 동일한 코드 사용
+> JavaScript 화살표 함수와 유사
 
 ---
 
-## 제네릭 타입 (클래스, 인터페이스)
-
-### 제네릭 클래스 선언
-
-```java
-// 타입 파라미터 T를 사용하는 클래스
-public class Box<T> {
-    private T content;
-
-    public void set(T content) {
-        this.content = content;
-    }
-
-    public T get() {
-        return content;
-    }
-}
-```
-
-### 제네릭 클래스 사용
-
-```java
-// String 타입으로 사용
-Box<String> stringBox = new Box<>();
-stringBox.set("Hello");
-String str = stringBox.get();
-
-// Integer 타입으로 사용
-Box<Integer> intBox = new Box<>();
-intBox.set(100);
-int num = intBox.get();
-```
-
-### 멀티 타입 파라미터
-
-```java
-public class Pair<K, V> {
-    private K key;
-    private V value;
-
-    public Pair(K key, V value) {
-        this.key = key;
-        this.value = value;
-    }
-
-    public K getKey() { return key; }
-    public V getValue() { return value; }
-}
-
-// 사용
-Pair<String, Integer> pair = new Pair<>("age", 25);
-```
-
-### 타입 파라미터 관례
-| 문자 | 의미 |
-|------|------|
-| T | Type |
-| E | Element (컬렉션) |
-| K | Key |
-| V | Value |
-| N | Number |
+## 학습 목표
+- 람다식 문법
+- 함수형 인터페이스
+- 메소드 참조
 
 ---
 
-## 제네릭 메소드
+## 13-1. 람다식이란?
 
-### 선언과 사용
+### 익명 함수
+- 이름 없는 함수
+- 함수형 인터페이스를 간결하게 구현
+
+### JS 화살표 함수와 비교
+```javascript
+// JavaScript
+const add = (a, b) => a + b;
+const greet = name => `Hello, ${name}`;
+const sayHi = () => console.log("Hi!");
+```
 
 ```java
-public class Util {
-    // 제네릭 메소드: 리턴 타입 앞에 <T> 선언
-    public static <T> Box<T> boxing(T content) {
-        Box<T> box = new Box<>();
-        box.set(content);
-        return box;
-    }
-}
-
-// 사용 - 타입 추론
-Box<String> box1 = Util.boxing("Hello");
-Box<Integer> box2 = Util.boxing(100);
-
-// 명시적 타입 지정
-Box<String> box3 = Util.<String>boxing("World");
+// Java
+BinaryOperator<Integer> add = (a, b) -> a + b;
+Function<String, String> greet = name -> "Hello, " + name;
+Runnable sayHi = () -> System.out.println("Hi!");
 ```
 
 ---
 
-## 제한된 타입 파라미터 (<T extends 상위타입>)
+## 13-2. 람다식 문법
 
-### 숫자만 받는 제네릭
-
+### 기본 형태
 ```java
-// Number의 하위 클래스만 타입으로 지정 가능
-public class Calculator<T extends Number> {
-    private T[] numbers;
-
-    public Calculator(T[] numbers) {
-        this.numbers = numbers;
-    }
-
-    public double sum() {
-        double total = 0;
-        for (T num : numbers) {
-            total += num.doubleValue();  // Number의 메소드 사용 가능
-        }
-        return total;
-    }
-}
-
-// 사용
-Calculator<Integer> calc1 = new Calculator<>(new Integer[]{1, 2, 3});
-Calculator<Double> calc2 = new Calculator<>(new Double[]{1.5, 2.5});
-// Calculator<String> calc3 = ...;  // 컴파일 에러!
+(매개변수) -> { 실행문 }
 ```
 
-### 인터페이스 제한
-
+### 변형
 ```java
-// Comparable 구현 클래스만 허용
-public static <T extends Comparable<T>> T max(T a, T b) {
-    return a.compareTo(b) > 0 ? a : b;
-}
-```
+// 매개변수 1개 - 괄호 생략 가능
+x -> x * 2
 
----
+// 매개변수 없음 - 빈 괄호 필수
+() -> System.out.println("Hello")
 
-## 와일드카드 타입 (<?>, <? extends>, <? super>)
+// 실행문 1개 - 중괄호, return 생략 가능
+(a, b) -> a + b
 
-### 비제한 와일드카드 <?>
-
-```java
-// 모든 타입 허용 (읽기 전용에 주로 사용)
-public void printList(List<?> list) {
-    for (Object item : list) {
-        System.out.println(item);
-    }
-}
-
-printList(Arrays.asList("A", "B"));
-printList(Arrays.asList(1, 2, 3));
-```
-
-### 상한 제한 와일드카드 <? extends 상위타입>
-
-```java
-// Number 또는 그 하위 타입만 허용 (생산자 - 읽기용)
-public double sumOfList(List<? extends Number> list) {
-    double sum = 0;
-    for (Number num : list) {
-        sum += num.doubleValue();
-    }
+// 실행문 여러 개 - 중괄호, return 필수
+(a, b) -> {
+    int sum = a + b;
     return sum;
 }
-
-sumOfList(Arrays.asList(1, 2, 3));        // Integer
-sumOfList(Arrays.asList(1.5, 2.5));       // Double
 ```
 
-### 하한 제한 와일드카드 <? super 하위타입>
-
+### 예시
 ```java
-// Integer 또는 그 상위 타입만 허용 (소비자 - 쓰기용)
-public void addNumbers(List<? super Integer> list) {
-    list.add(1);
-    list.add(2);
-    list.add(3);
-}
+// 기존 방식 (익명 클래스)
+Comparator<String> comp1 = new Comparator<String>() {
+    @Override
+    public int compare(String s1, String s2) {
+        return s1.length() - s2.length();
+    }
+};
 
-List<Number> numbers = new ArrayList<>();
-addNumbers(numbers);  // OK
-
-List<Object> objects = new ArrayList<>();
-addNumbers(objects);  // OK
-```
-
-### PECS 원칙
-> **P**roducer **E**xtends, **C**onsumer **S**uper
-
-- 데이터를 **읽기만** 할 때 → `<? extends T>`
-- 데이터를 **쓰기만** 할 때 → `<? super T>`
-
----
-
-## Spring에서의 활용
-
-```java
-// Repository 인터페이스
-public interface JpaRepository<T, ID> {
-    T save(T entity);
-    Optional<T> findById(ID id);
-    List<T> findAll();
-}
-
-// 사용
-public interface UserRepository extends JpaRepository<User, Long> {
-    // User 타입, Long ID로 자동 적용
-}
+// 람다식
+Comparator<String> comp2 = (s1, s2) -> s1.length() - s2.length();
 ```
 
 ---
 
-## 정리
+## 13-3. 함수형 인터페이스
 
-| 문법 | 의미 | 예시 |
-|------|------|------|
-| `<T>` | 타입 파라미터 | `class Box<T>` |
-| `<T extends X>` | T는 X의 하위 타입 | `<T extends Number>` |
-| `<?>` | 모든 타입 | `List<?>` |
-| `<? extends X>` | X 또는 하위 타입 | `List<? extends Number>` |
-| `<? super X>` | X 또는 상위 타입 | `List<? super Integer>` |
+### @FunctionalInterface
+- 추상 메소드가 **딱 1개**인 인터페이스
+- 람다식으로 구현 가능
+
+```java
+@FunctionalInterface
+interface Calculator {
+    int calculate(int a, int b);
+}
+
+Calculator add = (a, b) -> a + b;
+Calculator multiply = (a, b) -> a * b;
+
+System.out.println(add.calculate(10, 5));      // 15
+System.out.println(multiply.calculate(10, 5)); // 50
+```
+
+### 표준 함수형 인터페이스
+
+| 인터페이스 | 메소드 | 용도 | 예시 |
+|-----------|--------|------|------|
+| `Runnable` | `run()` | 실행만 | `() -> doSomething()` |
+| `Consumer<T>` | `accept(T)` | 소비 | `x -> System.out.println(x)` |
+| `Supplier<T>` | `get()` | 공급 | `() -> new User()` |
+| `Function<T,R>` | `apply(T)` | 변환 | `s -> s.length()` |
+| `Predicate<T>` | `test(T)` | 조건 | `x -> x > 0` |
+| `BiFunction<T,U,R>` | `apply(T,U)` | 2인자 변환 | `(a,b) -> a+b` |
+| `Comparator<T>` | `compare(T,T)` | 비교 | `(a,b) -> a-b` |
+
+---
+
+## 13-4. 표준 함수형 인터페이스 사용
+
+### Consumer - 소비 (입력만, 반환 없음)
+```java
+import java.util.function.Consumer;
+
+Consumer<String> printer = s -> System.out.println(s);
+printer.accept("Hello!");
+
+// 컬렉션과 함께
+List<String> names = List.of("홍길동", "김철수", "이영희");
+names.forEach(name -> System.out.println("이름: " + name));
+```
+
+### Supplier - 공급 (입력 없음, 반환만)
+```java
+import java.util.function.Supplier;
+
+Supplier<Double> randomSupplier = () -> Math.random();
+System.out.println(randomSupplier.get());
+
+Supplier<LocalDateTime> now = () -> LocalDateTime.now();
+```
+
+### Function - 변환 (입력 → 반환)
+```java
+import java.util.function.Function;
+
+Function<String, Integer> strLength = s -> s.length();
+System.out.println(strLength.apply("Hello"));  // 5
+
+Function<Integer, String> intToStr = i -> "숫자: " + i;
+System.out.println(intToStr.apply(42));  // "숫자: 42"
+```
+
+### Predicate - 조건 검사 (boolean 반환)
+```java
+import java.util.function.Predicate;
+
+Predicate<Integer> isPositive = x -> x > 0;
+Predicate<String> isEmpty = s -> s.isEmpty();
+
+System.out.println(isPositive.test(10));   // true
+System.out.println(isPositive.test(-5));   // false
+System.out.println(isEmpty.test(""));      // true
+
+// 조합
+Predicate<Integer> isEven = x -> x % 2 == 0;
+Predicate<Integer> isPositiveEven = isPositive.and(isEven);
+System.out.println(isPositiveEven.test(4));  // true
+```
+
+### Comparator - 비교
+```java
+import java.util.Comparator;
+
+Comparator<String> byLength = (s1, s2) -> s1.length() - s2.length();
+Comparator<String> byAlpha = (s1, s2) -> s1.compareTo(s2);
+
+List<String> words = new ArrayList<>(List.of("banana", "apple", "cherry"));
+words.sort(byLength);
+System.out.println(words);  // [apple, banana, cherry]
+```
+
+---
+
+## 13-5. 메소드 참조
+
+### 람다식을 더 간결하게
+```java
+// 람다식
+list.forEach(s -> System.out.println(s));
+
+// 메소드 참조
+list.forEach(System.out::println);
+```
+
+### 종류
+
+| 유형 | 람다식 | 메소드 참조 |
+|------|--------|------------|
+| 정적 메소드 | `x -> Integer.parseInt(x)` | `Integer::parseInt` |
+| 인스턴스 메소드 | `s -> s.toUpperCase()` | `String::toUpperCase` |
+| 특정 객체 메소드 | `x -> obj.method(x)` | `obj::method` |
+| 생성자 | `() -> new ArrayList()` | `ArrayList::new` |
+
+### 예시
+```java
+// 정적 메소드 참조
+Function<String, Integer> parser = Integer::parseInt;
+
+// 인스턴스 메소드 참조
+Function<String, String> toUpper = String::toUpperCase;
+
+// 특정 객체의 메소드
+PrintStream out = System.out;
+Consumer<String> printer = out::println;
+
+// 생성자 참조
+Supplier<List<String>> listFactory = ArrayList::new;
+List<String> newList = listFactory.get();
+
+// Function으로 생성자 호출
+Function<String, StringBuilder> sbFactory = StringBuilder::new;
+StringBuilder sb = sbFactory.apply("Hello");
+```
+
+---
+
+## 13-6. 람다와 컬렉션
+
+### forEach
+```java
+List<String> list = List.of("a", "b", "c");
+list.forEach(System.out::println);
+```
+
+### sort
+```java
+List<String> names = new ArrayList<>(List.of("홍길동", "김", "이영희"));
+names.sort((a, b) -> a.length() - b.length());
+// Comparator.comparingInt 사용
+names.sort(Comparator.comparingInt(String::length));
+```
+
+### removeIf
+```java
+List<Integer> numbers = new ArrayList<>(List.of(1, 2, 3, 4, 5, 6));
+numbers.removeIf(n -> n % 2 == 0);  // 짝수 제거
+System.out.println(numbers);  // [1, 3, 5]
+```
+
+### replaceAll
+```java
+List<String> words = new ArrayList<>(List.of("hello", "world"));
+words.replaceAll(String::toUpperCase);
+System.out.println(words);  // [HELLO, WORLD]
+```
+
+---
+
+## 실무 포인트
+> 람다식은 **Stream API**와 함께 사용할 때 진가 발휘.
+> Spring에서도 `@Bean`, 콜백 등에서 자주 사용.
+
+---
+
+## 예제 파일
+- `examples/LambdaBasic.java` - 람다 기본
+- `examples/FunctionalInterface.java` - 함수형 인터페이스
+- `examples/MethodReference.java` - 메소드 참조
+
+---
+
+## 다음 단계
+→ Chapter 14: 스트림 요소 처리

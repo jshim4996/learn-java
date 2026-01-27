@@ -300,10 +300,11 @@ public class Parent {
 ---
 
 ## 예제 파일
-- `examples/Animal.java` - 부모 클래스
+- `examples/Animal.java` - 부모 클래스 (추상)
 - `examples/Dog.java` - 자식 클래스
 - `examples/Cat.java` - 자식 클래스
 - `examples/InheritanceMain.java` - 사용 예제
+- `examples/PaymentStrategy.java` - 다형성 실무 예제 (전략 패턴)
 
 ---
 

@@ -472,6 +472,638 @@ curl -X DELETE http://localhost:8080/api/users/1
 
 ---
 
+## 13. 트랜잭션 (@Transactional)
+
+### 기본 사용
+```java
+@Service
+@RequiredArgsConstructor
+public class OrderService {
+
+    private final OrderRepository orderRepository;
+    private final PaymentService paymentService;
+
+    @Transactional  // 메소드 내 모든 DB 작업이 하나의 트랜잭션
+    public void createOrder(OrderRequest request) {
+        Order order = orderRepository.save(new Order(request));
+        paymentService.processPayment(order);  // 실패 시 order도 롤백
+    }
+}
+```
+
+### 읽기 전용 트랜잭션
+```java
+@Transactional(readOnly = true)  // 조회 전용 - 성능 최적화
+public List<Order> findOrders() {
+    return orderRepository.findAll();
+}
+```
+
+### 롤백 설정
+```java
+// 특정 예외에서만 롤백
+@Transactional(rollbackFor = Exception.class)
+
+// 특정 예외에서 롤백 안함
+@Transactional(noRollbackFor = CustomException.class)
+```
+
+### 전파 옵션 (Propagation)
+```java
+@Transactional(propagation = Propagation.REQUIRED)   // 기본값: 기존 트랜잭션 사용 or 새로 생성
+@Transactional(propagation = Propagation.REQUIRES_NEW)  // 항상 새 트랜잭션
+```
+
+---
+
+## 14. 테스트
+
+### JUnit 기본
+```java
+import org.junit.jupiter.api.*;
+import static org.assertj.core.api.Assertions.*;
+
+class CalculatorTest {
+
+    @BeforeEach
+    void setUp() {
+        // 각 테스트 전 실행
+    }
+
+    @Test
+    @DisplayName("1 + 1 = 2")
+    void addTest() {
+        Calculator calc = new Calculator();
+        assertThat(calc.add(1, 1)).isEqualTo(2);
+    }
+
+    @Test
+    void divideByZeroThrowsException() {
+        Calculator calc = new Calculator();
+        assertThatThrownBy(() -> calc.divide(1, 0))
+            .isInstanceOf(ArithmeticException.class);
+    }
+}
+```
+
+### Service 테스트 (MockBean)
+```java
+@ExtendWith(MockitoExtension.class)
+class UserServiceTest {
+
+    @Mock
+    private UserRepository userRepository;
+
+    @InjectMocks
+    private UserService userService;
+
+    @Test
+    void findById_success() {
+        // given
+        User user = new User(1L, "홍길동");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        // when
+        UserResponse result = userService.findById(1L);
+
+        // then
+        assertThat(result.getName()).isEqualTo("홍길동");
+    }
+}
+```
+
+### Controller 테스트 (MockMvc)
+```java
+@WebMvcTest(UserController.class)
+class UserControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockBean
+    private UserService userService;
+
+    @Test
+    void getUser_success() throws Exception {
+        when(userService.findById(1L))
+            .thenReturn(new UserResponse(1L, "홍길동"));
+
+        mockMvc.perform(get("/api/users/1"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.name").value("홍길동"));
+    }
+
+    @Test
+    void createUser_success() throws Exception {
+        mockMvc.perform(post("/api/users")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"홍길동\",\"email\":\"hong@test.com\"}"))
+            .andExpect(status().isOk());
+    }
+}
+```
+
+### Repository 테스트
+```java
+@DataJpaTest
+class UserRepositoryTest {
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Test
+    void findByEmail_success() {
+        // given
+        userRepository.save(new User("홍길동", "hong@test.com"));
+
+        // when
+        Optional<User> result = userRepository.findByEmail("hong@test.com");
+
+        // then
+        assertThat(result).isPresent();
+        assertThat(result.get().getName()).isEqualTo("홍길동");
+    }
+}
+```
+
+---
+
+## 15. 인증/보안 (Spring Security + JWT)
+
+### 의존성 추가
+```gradle
+implementation 'org.springframework.boot:spring-boot-starter-security'
+implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
+runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+```
+
+### JWT 토큰 생성/검증
+```java
+@Component
+public class JwtTokenProvider {
+
+    @Value("${jwt.secret}")
+    private String secretKey;
+
+    private final long tokenValidTime = 1000L * 60 * 60 * 24;  // 24시간
+
+    // 토큰 생성
+    public String createToken(Long userId, String email) {
+        Date now = new Date();
+        return Jwts.builder()
+            .setSubject(String.valueOf(userId))
+            .claim("email", email)
+            .setIssuedAt(now)
+            .setExpiration(new Date(now.getTime() + tokenValidTime))
+            .signWith(Keys.hmacShaKeyFor(secretKey.getBytes()))
+            .compact();
+    }
+
+    // 토큰에서 userId 추출
+    public Long getUserId(String token) {
+        return Long.parseLong(
+            Jwts.parserBuilder()
+                .setSigningKey(Keys.hmacShaKeyFor(secretKey.getBytes()))
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .getSubject()
+        );
+    }
+
+    // 토큰 유효성 검증
+    public boolean validateToken(String token) {
+        try {
+            Jwts.parserBuilder()
+                .setSigningKey(Keys.hmacShaKeyFor(secretKey.getBytes()))
+                .build()
+                .parseClaimsJws(token);
+            return true;
+        } catch (JwtException e) {
+            return false;
+        }
+    }
+}
+```
+
+### Security 설정
+```java
+@Configuration
+@EnableWebSecurity
+@RequiredArgsConstructor
+public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtFilter;
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        return http
+            .csrf(csrf -> csrf.disable())
+            .sessionManagement(session ->
+                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/auth/**").permitAll()  // 로그인, 회원가입
+                .anyRequest().authenticated()
+            )
+            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+            .build();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}
+```
+
+### JWT 필터
+```java
+@Component
+@RequiredArgsConstructor
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private final JwtTokenProvider jwtTokenProvider;
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request,
+            HttpServletResponse response, FilterChain chain)
+            throws ServletException, IOException {
+
+        String token = resolveToken(request);
+
+        if (token != null && jwtTokenProvider.validateToken(token)) {
+            Long userId = jwtTokenProvider.getUserId(token);
+            // SecurityContext에 인증 정보 저장
+            UsernamePasswordAuthenticationToken auth =
+                new UsernamePasswordAuthenticationToken(userId, null, List.of());
+            SecurityContextHolder.getContext().setAuthentication(auth);
+        }
+
+        chain.doFilter(request, response);
+    }
+
+    private String resolveToken(HttpServletRequest request) {
+        String bearer = request.getHeader("Authorization");
+        if (bearer != null && bearer.startsWith("Bearer ")) {
+            return bearer.substring(7);
+        }
+        return null;
+    }
+}
+```
+
+### 로그인 API
+```java
+@RestController
+@RequestMapping("/api/auth")
+@RequiredArgsConstructor
+public class AuthController {
+
+    private final AuthService authService;
+
+    @PostMapping("/login")
+    public TokenResponse login(@RequestBody LoginRequest request) {
+        return authService.login(request);
+    }
+
+    @PostMapping("/signup")
+    public void signup(@RequestBody @Valid SignupRequest request) {
+        authService.signup(request);
+    }
+}
+```
+
+---
+
+## 16. 파일 처리
+
+### 파일 업로드
+```java
+@RestController
+@RequestMapping("/api/files")
+@RequiredArgsConstructor
+public class FileController {
+
+    private final FileService fileService;
+
+    @PostMapping("/upload")
+    public FileResponse upload(@RequestParam("file") MultipartFile file) {
+        return fileService.upload(file);
+    }
+
+    @PostMapping("/uploads")
+    public List<FileResponse> uploadMultiple(
+            @RequestParam("files") List<MultipartFile> files) {
+        return fileService.uploadMultiple(files);
+    }
+}
+```
+
+### 파일 저장 Service
+```java
+@Service
+public class FileService {
+
+    @Value("${file.upload-dir}")
+    private String uploadDir;
+
+    public FileResponse upload(MultipartFile file) {
+        try {
+            // 파일명 생성 (UUID + 원본 확장자)
+            String originalName = file.getOriginalFilename();
+            String extension = originalName.substring(originalName.lastIndexOf("."));
+            String savedName = UUID.randomUUID() + extension;
+
+            // 저장 경로
+            Path path = Paths.get(uploadDir, savedName);
+            Files.createDirectories(path.getParent());
+            Files.copy(file.getInputStream(), path);
+
+            return new FileResponse(savedName, "/files/" + savedName);
+        } catch (IOException e) {
+            throw new FileUploadException("파일 업로드 실패", e);
+        }
+    }
+}
+```
+
+### 파일 조회 (정적 리소스)
+```java
+@Configuration
+public class WebConfig implements WebMvcConfigurer {
+
+    @Value("${file.upload-dir}")
+    private String uploadDir;
+
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        registry.addResourceHandler("/files/**")
+            .addResourceLocations("file:" + uploadDir + "/");
+    }
+}
+```
+
+### application.yml 설정
+```yaml
+file:
+  upload-dir: /uploads
+
+spring:
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+```
+
+---
+
+## 17. 푸시 알림 (FCM)
+
+### 의존성 추가
+```gradle
+implementation 'com.google.firebase:firebase-admin:9.2.0'
+```
+
+### Firebase 초기화
+```java
+@Configuration
+public class FirebaseConfig {
+
+    @PostConstruct
+    public void init() {
+        try {
+            FileInputStream serviceAccount =
+                new FileInputStream("firebase-service-account.json");
+
+            FirebaseOptions options = FirebaseOptions.builder()
+                .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                .build();
+
+            if (FirebaseApp.getApps().isEmpty()) {
+                FirebaseApp.initializeApp(options);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Firebase 초기화 실패", e);
+        }
+    }
+}
+```
+
+### FCM 토큰 저장
+```java
+@Entity
+public class FcmToken {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private Long userId;
+    private String token;
+    private String deviceType;  // iOS, Android
+
+    @CreatedDate
+    private LocalDateTime createdAt;
+}
+```
+
+### 푸시 발송 Service
+```java
+@Service
+@RequiredArgsConstructor
+public class FcmService {
+
+    private final FcmTokenRepository fcmTokenRepository;
+
+    // 단일 발송
+    public void sendToUser(Long userId, String title, String body) {
+        List<FcmToken> tokens = fcmTokenRepository.findByUserId(userId);
+
+        for (FcmToken fcmToken : tokens) {
+            Message message = Message.builder()
+                .setToken(fcmToken.getToken())
+                .setNotification(Notification.builder()
+                    .setTitle(title)
+                    .setBody(body)
+                    .build())
+                .build();
+
+            try {
+                FirebaseMessaging.getInstance().send(message);
+            } catch (FirebaseMessagingException e) {
+                // 토큰 만료 시 삭제
+                if (e.getMessagingErrorCode() == MessagingErrorCode.UNREGISTERED) {
+                    fcmTokenRepository.delete(fcmToken);
+                }
+            }
+        }
+    }
+
+    // 데이터 포함 발송
+    public void sendWithData(Long userId, String title, String body,
+            Map<String, String> data) {
+        List<FcmToken> tokens = fcmTokenRepository.findByUserId(userId);
+
+        for (FcmToken fcmToken : tokens) {
+            Message message = Message.builder()
+                .setToken(fcmToken.getToken())
+                .setNotification(Notification.builder()
+                    .setTitle(title)
+                    .setBody(body)
+                    .build())
+                .putAllData(data)  // 커스텀 데이터
+                .build();
+
+            try {
+                FirebaseMessaging.getInstance().send(message);
+            } catch (FirebaseMessagingException e) {
+                log.error("FCM 발송 실패: {}", e.getMessage());
+            }
+        }
+    }
+}
+```
+
+### 토큰 등록 API
+```java
+@RestController
+@RequestMapping("/api/fcm")
+@RequiredArgsConstructor
+public class FcmController {
+
+    private final FcmTokenRepository fcmTokenRepository;
+
+    @PostMapping("/token")
+    public void registerToken(@RequestBody FcmTokenRequest request,
+            @AuthenticationPrincipal Long userId) {
+        // 기존 토큰 삭제 후 새로 저장
+        fcmTokenRepository.deleteByUserIdAndDeviceType(userId, request.getDeviceType());
+        fcmTokenRepository.save(new FcmToken(userId, request.getToken(), request.getDeviceType()));
+    }
+}
+```
+
+---
+
+## 18. 캐싱 (Redis)
+
+### 의존성 추가
+```gradle
+implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+```
+
+### Redis 설정
+```java
+@Configuration
+@EnableCaching
+public class RedisConfig {
+
+    @Bean
+    public RedisTemplate<String, Object> redisTemplate(
+            RedisConnectionFactory connectionFactory) {
+        RedisTemplate<String, Object> template = new RedisTemplate<>();
+        template.setConnectionFactory(connectionFactory);
+        template.setKeySerializer(new StringRedisSerializer());
+        template.setValueSerializer(new GenericJackson2JsonRedisSerializer());
+        return template;
+    }
+
+    @Bean
+    public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
+        RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
+            .entryTtl(Duration.ofMinutes(10))  // 기본 TTL 10분
+            .serializeKeysWith(
+                RedisSerializationContext.SerializationPair
+                    .fromSerializer(new StringRedisSerializer()))
+            .serializeValuesWith(
+                RedisSerializationContext.SerializationPair
+                    .fromSerializer(new GenericJackson2JsonRedisSerializer()));
+
+        return RedisCacheManager.builder(connectionFactory)
+            .cacheDefaults(config)
+            .build();
+    }
+}
+```
+
+### application.yml
+```yaml
+spring:
+  redis:
+    host: localhost
+    port: 6379
+```
+
+### 캐시 어노테이션 사용
+```java
+@Service
+@RequiredArgsConstructor
+public class UserService {
+
+    private final UserRepository userRepository;
+
+    // 캐시 조회 (없으면 DB 조회 후 캐시 저장)
+    @Cacheable(value = "users", key = "#id")
+    public UserResponse findById(Long id) {
+        return userRepository.findById(id)
+            .map(UserResponse::from)
+            .orElseThrow(() -> new UserNotFoundException(id));
+    }
+
+    // 캐시 갱신
+    @CachePut(value = "users", key = "#id")
+    public UserResponse update(Long id, UpdateUserRequest request) {
+        User user = userRepository.findById(id)
+            .orElseThrow(() -> new UserNotFoundException(id));
+        user.update(request);
+        return UserResponse.from(user);
+    }
+
+    // 캐시 삭제
+    @CacheEvict(value = "users", key = "#id")
+    public void delete(Long id) {
+        userRepository.deleteById(id);
+    }
+
+    // 전체 캐시 삭제
+    @CacheEvict(value = "users", allEntries = true)
+    public void clearCache() {
+    }
+}
+```
+
+### RedisTemplate 직접 사용
+```java
+@Service
+@RequiredArgsConstructor
+public class SessionService {
+
+    private final RedisTemplate<String, Object> redisTemplate;
+
+    // 저장
+    public void save(String key, Object value, long minutes) {
+        redisTemplate.opsForValue().set(key, value, Duration.ofMinutes(minutes));
+    }
+
+    // 조회
+    public Object get(String key) {
+        return redisTemplate.opsForValue().get(key);
+    }
+
+    // 삭제
+    public void delete(String key) {
+        redisTemplate.delete(key);
+    }
+
+    // TTL 확인
+    public Long getTtl(String key) {
+        return redisTemplate.getExpire(key);
+    }
+}
+```
+
+---
+
 ## 실무 포인트
 
 ### 계층 구조

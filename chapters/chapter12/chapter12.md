@@ -1,4 +1,4 @@
-# Chapter 15. 컬렉션 자료구조
+# Chapter 12. 컬렉션 자료구조
 
 > 배열의 한계를 넘어서 - 실무 필수
 
@@ -11,7 +11,7 @@
 
 ---
 
-## 15-1. 컬렉션 프레임워크
+## 12-1. 컬렉션 프레임워크
 
 ### 왜 컬렉션?
 - 배열: 크기 고정, 타입 고정
@@ -40,7 +40,7 @@ Map (interface) - 키-값 쌍
 
 ---
 
-## 15-2. 제네릭 (Generics) 기초
+## 12-2. 제네릭 (Generics) 기초
 
 ### 타입 파라미터
 ```java
@@ -66,7 +66,7 @@ Map<String, Integer> map = new HashMap<>();
 
 ---
 
-## 15-3. List - ArrayList
+## 12-3. List - ArrayList
 
 ### 생성과 추가
 ```java
@@ -128,7 +128,7 @@ List<String> list3 = new ArrayList<>(List.of("a", "b", "c"));
 
 ---
 
-## 15-4. List - LinkedList
+## 12-4. List - LinkedList
 
 ### ArrayList vs LinkedList
 | | ArrayList | LinkedList |
@@ -150,7 +150,7 @@ linked.removeLast();
 
 ---
 
-## 15-5. Set - HashSet
+## 12-5. Set - HashSet
 
 ### 특징
 - **중복 불가**
@@ -205,7 +205,7 @@ difference.removeAll(set2);  // {1, 2}
 
 ---
 
-## 15-6. Map - HashMap
+## 12-6. Map - HashMap
 
 ### 특징
 - **키-값** 쌍
@@ -281,7 +281,7 @@ scores.merge("홍길동", 5, Integer::sum);  // 기존값 + 5
 
 ---
 
-## 15-7. 컬렉션 유틸리티
+## 12-7. 컬렉션 유틸리티
 
 ### Collections 클래스
 ```java
@@ -329,4 +329,4 @@ Map<String, Integer> map = Map.of("a", 1, "b", 2);
 ---
 
 ## 다음 단계
-→ Chapter 16: 람다식
+→ Chapter 13: 람다식

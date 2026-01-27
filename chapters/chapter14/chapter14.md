@@ -1,331 +1,357 @@
-# Chapter 14. 멀티 스레드 (Multi Thread)
+# Chapter 14. 스트림 요소 처리
 
-> 스레드는 프로세스 내에서 실행되는 독립적인 실행 흐름
-
----
-
-## 프로세스와 스레드
-
-### 프로세스 (Process)
-- 운영체제에서 실행 중인 프로그램
-- 독립적인 메모리 공간을 가짐
-- 하나 이상의 스레드를 포함
-
-### 스레드 (Thread)
-- 프로세스 내에서 실행되는 작업 단위
-- 프로세스의 메모리를 공유
-- 동시에 여러 작업 수행 가능
-
-```
-[프로세스]
-├── 코드 영역 (공유)
-├── 데이터 영역 (공유)
-├── 힙 영역 (공유)
-└── 스레드들
-    ├── 스레드1 (독립적인 스택)
-    ├── 스레드2 (독립적인 스택)
-    └── 스레드3 (독립적인 스택)
-```
+> JavaScript의 map, filter, reduce와 유사
 
 ---
 
-## 메인 스레드
-
-### Java 프로그램의 시작점
-
-```java
-public class MainThreadExample {
-    public static void main(String[] args) {
-        // main() 메소드를 실행하는 스레드 = 메인 스레드
-        Thread mainThread = Thread.currentThread();
-        System.out.println("현재 스레드: " + mainThread.getName());  // main
-    }
-}
-```
-
-### 싱글 스레드 vs 멀티 스레드
-
-```java
-// 싱글 스레드 - 순차 실행
-public void singleThread() {
-    작업1();  // 완료 후
-    작업2();  // 실행
-    작업3();  // 실행
-}
-
-// 멀티 스레드 - 동시 실행
-public void multiThread() {
-    new Thread(() -> 작업1()).start();
-    new Thread(() -> 작업2()).start();
-    new Thread(() -> 작업3()).start();
-    // 세 작업이 동시에 실행
-}
-```
+## 학습 목표
+- Stream API 개념
+- 중간 연산과 최종 연산
+- 실무 활용 패턴
 
 ---
 
-## 스레드 생성
+## 14-1. 스트림이란?
 
-### 방법 1: Thread 클래스 상속
+### 개념
+- 컬렉션 데이터를 **선언적**으로 처리
+- **파이프라인** 방식 (체이닝)
+- **불변** - 원본 데이터 변경 안함
 
-```java
-public class MyThread extends Thread {
-    @Override
-    public void run() {
-        // 스레드가 실행할 코드
-        for (int i = 0; i < 5; i++) {
-            System.out.println(getName() + ": " + i);
-            try {
-                Thread.sleep(500);  // 0.5초 대기
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-}
-
-// 사용
-MyThread thread = new MyThread();
-thread.start();  // run()이 아닌 start() 호출!
+### JS와 비교
+```javascript
+// JavaScript
+const result = numbers
+    .filter(n => n > 0)
+    .map(n => n * 2)
+    .reduce((a, b) => a + b, 0);
 ```
 
-### 방법 2: Runnable 인터페이스 구현 (권장)
-
 ```java
-public class MyRunnable implements Runnable {
-    @Override
-    public void run() {
-        for (int i = 0; i < 5; i++) {
-            System.out.println(Thread.currentThread().getName() + ": " + i);
-        }
-    }
-}
-
-// 사용
-Thread thread = new Thread(new MyRunnable());
-thread.start();
-
-// 람다로 간단하게
-Thread thread2 = new Thread(() -> {
-    System.out.println("람다 스레드 실행");
-});
-thread2.start();
+// Java Stream
+int result = numbers.stream()
+    .filter(n -> n > 0)
+    .map(n -> n * 2)
+    .reduce(0, Integer::sum);
 ```
 
-### Runnable이 권장되는 이유
-1. 다른 클래스 상속 가능 (Java는 단일 상속)
-2. 작업과 스레드 분리 → 재사용성 향상
-3. 람다 표현식 사용 가능
+### 스트림 특징
+1. **원본 변경 X** - 새 스트림 생성
+2. **지연 평가** - 최종 연산 시 실행
+3. **일회용** - 한 번 사용하면 재사용 불가
 
 ---
 
-## 스레드 이름과 상태
+## 14-2. 스트림 생성
 
-### 스레드 이름 설정
-
+### 컬렉션에서 생성
 ```java
-Thread thread = new Thread(() -> {
-    System.out.println(Thread.currentThread().getName());
-});
-thread.setName("작업-스레드-1");
-thread.start();  // "작업-스레드-1" 출력
+List<String> list = List.of("a", "b", "c");
+Stream<String> stream = list.stream();
 ```
 
-### 스레드 상태 (Thread State)
-
-| 상태 | 설명 |
-|------|------|
-| NEW | 스레드 객체 생성, 아직 start() 호출 전 |
-| RUNNABLE | 실행 중 또는 실행 대기 |
-| WAITING | 다른 스레드의 통지를 기다림 |
-| TIMED_WAITING | 일정 시간 대기 (sleep, wait) |
-| BLOCKED | 락 획득 대기 |
-| TERMINATED | 실행 완료 |
-
+### 배열에서 생성
 ```java
-Thread.State state = thread.getState();
-System.out.println("상태: " + state);
+String[] arr = {"a", "b", "c"};
+Stream<String> stream = Arrays.stream(arr);
+```
+
+### 직접 생성
+```java
+Stream<String> stream = Stream.of("a", "b", "c");
+Stream<Integer> numbers = Stream.of(1, 2, 3, 4, 5);
+```
+
+### 범위 생성
+```java
+IntStream range = IntStream.range(1, 10);      // 1~9
+IntStream rangeClosed = IntStream.rangeClosed(1, 10);  // 1~10
 ```
 
 ---
 
-## 동기화 (synchronized)
+## 14-3. 중간 연산 (Intermediate)
 
-### 동기화가 필요한 이유
-
+### filter - 조건 필터링
 ```java
-public class Counter {
-    private int count = 0;
+List<Integer> numbers = List.of(1, 2, 3, 4, 5, 6);
 
-    // 동기화 없이 - 경쟁 상태 발생
-    public void increment() {
-        count++;  // 읽기 → 증가 → 저장 (3단계, 중간에 다른 스레드 끼어들 수 있음)
-    }
-}
+List<Integer> evens = numbers.stream()
+    .filter(n -> n % 2 == 0)
+    .toList();
+// [2, 4, 6]
 ```
 
-### 메소드 동기화
-
+### map - 요소 변환
 ```java
-public class Counter {
-    private int count = 0;
+List<String> names = List.of("홍길동", "김철수", "이영희");
 
-    // synchronized 키워드로 한 번에 한 스레드만 실행
-    public synchronized void increment() {
-        count++;
-    }
+List<Integer> lengths = names.stream()
+    .map(String::length)
+    .toList();
+// [3, 3, 3]
 
-    public synchronized int getCount() {
-        return count;
-    }
-}
+List<String> upperNames = names.stream()
+    .map(String::toUpperCase)
+    .toList();
 ```
 
-### 블록 동기화
-
+### flatMap - 중첩 구조 평탄화
 ```java
-public class Counter {
-    private int count = 0;
-    private final Object lock = new Object();
+List<List<Integer>> nested = List.of(
+    List.of(1, 2),
+    List.of(3, 4),
+    List.of(5, 6)
+);
 
-    public void increment() {
-        // 특정 블록만 동기화 (성능상 유리)
-        synchronized (lock) {
-            count++;
-        }
-    }
-}
+List<Integer> flat = nested.stream()
+    .flatMap(List::stream)
+    .toList();
+// [1, 2, 3, 4, 5, 6]
 ```
 
-### 동기화 주의점
-- 동기화 범위는 최소화 (성능 저하 방지)
-- 데드락(교착 상태) 주의
-- 가능하면 `java.util.concurrent` 패키지 사용
-
----
-
-## 스레드 풀 (ExecutorService)
-
-### 스레드 풀이 필요한 이유
-- 스레드 생성/소멸 비용 절감
-- 스레드 개수 제한으로 시스템 자원 관리
-- 작업 큐를 통한 효율적인 작업 분배
-
-### 스레드 풀 생성
-
+### sorted - 정렬
 ```java
-import java.util.concurrent.*;
+List<Integer> sorted = numbers.stream()
+    .sorted()
+    .toList();
 
-// 고정 크기 스레드 풀
-ExecutorService executor = Executors.newFixedThreadPool(4);
+// 역순
+List<Integer> reversed = numbers.stream()
+    .sorted(Comparator.reverseOrder())
+    .toList();
 
-// 캐시 스레드 풀 (필요시 생성, 유휴 시 제거)
-ExecutorService executor2 = Executors.newCachedThreadPool();
-
-// 단일 스레드
-ExecutorService executor3 = Executors.newSingleThreadExecutor();
+// 커스텀 정렬
+List<String> byLength = names.stream()
+    .sorted(Comparator.comparing(String::length))
+    .toList();
 ```
 
-### 작업 제출
-
+### distinct - 중복 제거
 ```java
-ExecutorService executor = Executors.newFixedThreadPool(2);
-
-// Runnable 작업 (리턴값 없음)
-executor.execute(() -> {
-    System.out.println("작업 실행: " + Thread.currentThread().getName());
-});
-
-// Callable 작업 (리턴값 있음)
-Future<Integer> future = executor.submit(() -> {
-    Thread.sleep(1000);
-    return 100;
-});
-
-// 결과 받기 (블로킹)
-Integer result = future.get();
-System.out.println("결과: " + result);
-
-// 종료
-executor.shutdown();
+List<Integer> unique = List.of(1, 2, 2, 3, 3, 3).stream()
+    .distinct()
+    .toList();
+// [1, 2, 3]
 ```
 
-### 여러 작업 처리
-
+### limit / skip
 ```java
-ExecutorService executor = Executors.newFixedThreadPool(3);
+List<Integer> first3 = numbers.stream()
+    .limit(3)
+    .toList();
 
-List<Future<String>> futures = new ArrayList<>();
-for (int i = 0; i < 5; i++) {
-    int taskId = i;
-    Future<String> future = executor.submit(() -> {
-        Thread.sleep(1000);
-        return "작업 " + taskId + " 완료";
-    });
-    futures.add(future);
-}
+List<Integer> skip2 = numbers.stream()
+    .skip(2)
+    .toList();
+```
 
-// 모든 결과 수집
-for (Future<String> future : futures) {
-    System.out.println(future.get());
-}
-
-executor.shutdown();
+### peek - 디버깅용
+```java
+numbers.stream()
+    .filter(n -> n > 2)
+    .peek(n -> System.out.println("필터 통과: " + n))
+    .map(n -> n * 2)
+    .forEach(System.out::println);
 ```
 
 ---
 
-## Spring에서의 활용
+## 14-4. 최종 연산 (Terminal)
 
-### @Async 비동기 처리
-
+### collect - 컬렉션으로 수집
 ```java
-@Service
-public class EmailService {
+// List로
+List<String> list = stream.collect(Collectors.toList());
+List<String> list2 = stream.toList();  // Java 16+
 
-    @Async  // 별도 스레드에서 실행
-    public void sendEmail(String to, String content) {
-        // 시간이 오래 걸리는 이메일 발송
-        // 메인 스레드는 대기하지 않고 바로 리턴
-    }
+// Set으로
+Set<String> set = stream.collect(Collectors.toSet());
 
-    @Async
-    public CompletableFuture<String> sendEmailWithResult(String to) {
-        // 결과가 필요한 경우
-        return CompletableFuture.completedFuture("전송 완료");
-    }
-}
+// Map으로
+Map<String, Integer> map = names.stream()
+    .collect(Collectors.toMap(
+        name -> name,           // 키
+        name -> name.length()   // 값
+    ));
 ```
 
-### Spring의 스레드 풀 설정
-
+### forEach - 각 요소 처리
 ```java
-@Configuration
-@EnableAsync
-public class AsyncConfig {
+names.stream().forEach(System.out::println);
+names.forEach(System.out::println);  // 스트림 없이도 가능
+```
 
-    @Bean
-    public Executor taskExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(2);
-        executor.setMaxPoolSize(10);
-        executor.setQueueCapacity(500);
-        executor.setThreadNamePrefix("Async-");
-        executor.initialize();
-        return executor;
-    }
-}
+### count - 개수
+```java
+long count = numbers.stream()
+    .filter(n -> n > 3)
+    .count();
+```
+
+### reduce - 집계
+```java
+// 합계
+int sum = numbers.stream()
+    .reduce(0, (a, b) -> a + b);
+
+int sum2 = numbers.stream()
+    .reduce(0, Integer::sum);
+
+// 최대값
+Optional<Integer> max = numbers.stream()
+    .reduce(Integer::max);
+```
+
+### 집계 메소드
+```java
+IntStream intStream = numbers.stream().mapToInt(Integer::intValue);
+
+int sum = intStream.sum();
+OptionalDouble avg = intStream.average();
+OptionalInt max = intStream.max();
+OptionalInt min = intStream.min();
+```
+
+### anyMatch / allMatch / noneMatch
+```java
+boolean hasEven = numbers.stream()
+    .anyMatch(n -> n % 2 == 0);  // 하나라도 짝수?
+
+boolean allPositive = numbers.stream()
+    .allMatch(n -> n > 0);  // 전부 양수?
+
+boolean noNegative = numbers.stream()
+    .noneMatch(n -> n < 0);  // 음수 없음?
+```
+
+### findFirst / findAny
+```java
+Optional<Integer> first = numbers.stream()
+    .filter(n -> n > 3)
+    .findFirst();
+
+first.ifPresent(System.out::println);
 ```
 
 ---
 
-## 정리
+## 14-5. Optional
 
-| 개념 | 설명 |
-|------|------|
-| Thread | 프로세스 내 실행 단위 |
-| Runnable | 작업 정의 인터페이스 |
-| synchronized | 동기화로 경쟁 상태 방지 |
-| ExecutorService | 스레드 풀 관리 |
-| Future | 비동기 작업 결과 |
-| @Async (Spring) | 간편한 비동기 처리 |
+### null 안전한 처리
+```java
+Optional<String> opt = Optional.of("Hello");
+Optional<String> empty = Optional.empty();
+Optional<String> nullable = Optional.ofNullable(null);
+```
+
+### 값 가져오기
+```java
+opt.get();                    // 값 (없으면 예외)
+opt.orElse("기본값");          // 값 또는 기본값
+opt.orElseGet(() -> "계산값");  // 값 또는 Supplier
+opt.orElseThrow();            // 값 또는 예외
+```
+
+### 체이닝
+```java
+Optional<Integer> result = Optional.of("hello")
+    .map(String::length)
+    .filter(len -> len > 3);
+
+result.ifPresent(System.out::println);
+```
+
+---
+
+## 14-6. Collectors 유틸리티
+
+### 문자열 조인
+```java
+String joined = names.stream()
+    .collect(Collectors.joining(", "));
+// "홍길동, 김철수, 이영희"
+```
+
+### 그룹핑
+```java
+Map<Integer, List<String>> byLength = names.stream()
+    .collect(Collectors.groupingBy(String::length));
+// {3: ["홍길동", "김철수", "이영희"]}
+```
+
+### 분할
+```java
+Map<Boolean, List<Integer>> partitioned = numbers.stream()
+    .collect(Collectors.partitioningBy(n -> n % 2 == 0));
+// {true: [2, 4, 6], false: [1, 3, 5]}
+```
+
+### 통계
+```java
+IntSummaryStatistics stats = numbers.stream()
+    .collect(Collectors.summarizingInt(Integer::intValue));
+
+stats.getSum();
+stats.getAverage();
+stats.getMax();
+stats.getMin();
+stats.getCount();
+```
+
+---
+
+## 14-7. 실무 패턴
+
+### 객체 리스트 처리
+```java
+List<User> users = List.of(
+    new User("홍길동", 25),
+    new User("김철수", 30),
+    new User("이영희", 28)
+);
+
+// 이름만 추출
+List<String> names = users.stream()
+    .map(User::getName)
+    .toList();
+
+// 나이 합계
+int totalAge = users.stream()
+    .mapToInt(User::getAge)
+    .sum();
+
+// 조건 필터링 + 정렬
+List<User> adults = users.stream()
+    .filter(u -> u.getAge() >= 18)
+    .sorted(Comparator.comparing(User::getAge))
+    .toList();
+```
+
+### 중첩 컬렉션 처리
+```java
+List<Order> orders = ...;
+
+// 모든 주문의 상품 추출
+List<Product> allProducts = orders.stream()
+    .flatMap(order -> order.getProducts().stream())
+    .toList();
+```
+
+---
+
+## 실무 포인트
+> Spring에서 Repository 결과, DTO 변환 등에서 Stream 많이 사용.
+> `list.stream().map(...).toList()` 패턴 익숙해지기.
+
+---
+
+## 예제 파일
+- `examples/StreamBasic.java` - 기본 사용
+- `examples/StreamCollect.java` - 수집 연산
+- `examples/StreamPractice.java` - 실무 패턴
+
+---
+
+## 다음 단계
+→ Spring Boot 학습

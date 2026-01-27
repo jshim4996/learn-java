@@ -1,301 +1,336 @@
-# Chapter 11. 예외 처리
+# Chapter 11. 멀티 스레드 (Multi Thread)
 
-> 안정적인 프로그램을 위한 필수 기술
-
----
-
-## 학습 목표
-- 예외와 에러의 차이
-- try-catch-finally
-- throws와 throw
-- 사용자 정의 예외
+> 스레드는 프로세스 내에서 실행되는 독립적인 실행 흐름
 
 ---
 
-## 11-1. 예외와 예외 클래스
+## 프로세스와 스레드
 
-### 예외 계층 구조
+### 프로세스 (Process)
+- 운영체제에서 실행 중인 프로그램
+- 독립적인 메모리 공간을 가짐
+- 하나 이상의 스레드를 포함
+
+### 스레드 (Thread)
+- 프로세스 내에서 실행되는 작업 단위
+- 프로세스의 메모리를 공유
+- 동시에 여러 작업 수행 가능
+
 ```
-Throwable
-├── Error (시스템 에러, 처리 불가)
-│   ├── OutOfMemoryError
-│   └── StackOverflowError
-└── Exception (예외, 처리 가능)
-    ├── RuntimeException (Unchecked)
-    │   ├── NullPointerException
-    │   ├── IndexOutOfBoundsException
-    │   └── IllegalArgumentException
-    └── 기타 Exception (Checked)
-        ├── IOException
-        └── SQLException
-```
-
-### Checked vs Unchecked
-
-| 구분 | Checked Exception | Unchecked Exception |
-|------|-------------------|---------------------|
-| 처리 | 컴파일 시 강제 | 선택 |
-| 예시 | IOException, SQLException | NullPointerException |
-| 발생 원인 | 외부 환경 (파일, 네트워크) | 프로그래밍 실수 |
-
-### JS와 비교
-```javascript
-// JavaScript - 모든 예외가 unchecked
-try {
-    throw new Error("에러 발생");
-} catch (e) {
-    console.error(e.message);
-}
-```
-
-```java
-// Java - checked/unchecked 구분
-try {
-    FileReader fr = new FileReader("file.txt");  // checked
-} catch (FileNotFoundException e) {
-    System.out.println("파일 없음");
-}
+[프로세스]
+├── 코드 영역 (공유)
+├── 데이터 영역 (공유)
+├── 힙 영역 (공유)
+└── 스레드들
+    ├── 스레드1 (독립적인 스택)
+    ├── 스레드2 (독립적인 스택)
+    └── 스레드3 (독립적인 스택)
 ```
 
 ---
 
-## 11-2. try-catch-finally
+## 메인 스레드
 
-### 기본 구조
+### Java 프로그램의 시작점
+
 ```java
-try {
-    // 예외 발생 가능 코드
-} catch (예외타입 변수) {
-    // 예외 처리
-} finally {
-    // 항상 실행 (생략 가능)
-}
-```
-
-### 예시
-```java
-try {
-    int result = 10 / 0;
-    System.out.println(result);
-} catch (ArithmeticException e) {
-    System.out.println("0으로 나눌 수 없습니다");
-    System.out.println("에러 메시지: " + e.getMessage());
-} finally {
-    System.out.println("항상 실행됨");
-}
-```
-
-### 다중 catch
-```java
-try {
-    String str = null;
-    System.out.println(str.length());  // NullPointerException
-    int[] arr = {1, 2, 3};
-    System.out.println(arr[10]);       // IndexOutOfBoundsException
-} catch (NullPointerException e) {
-    System.out.println("null 참조 에러");
-} catch (IndexOutOfBoundsException e) {
-    System.out.println("인덱스 범위 초과");
-} catch (Exception e) {
-    System.out.println("기타 예외: " + e.getMessage());
-}
-```
-
-### 멀티 catch (Java 7+)
-```java
-try {
-    // ...
-} catch (NullPointerException | IndexOutOfBoundsException e) {
-    System.out.println("예외 발생: " + e.getMessage());
-}
-```
-
----
-
-## 11-3. try-with-resources (Java 7+)
-
-### 자동 리소스 관리
-```java
-// Before (finally에서 직접 close)
-FileReader fr = null;
-try {
-    fr = new FileReader("file.txt");
-    // 사용
-} catch (IOException e) {
-    e.printStackTrace();
-} finally {
-    if (fr != null) {
-        try { fr.close(); } catch (IOException e) { }
-    }
-}
-
-// After (자동 close)
-try (FileReader fr = new FileReader("file.txt")) {
-    // 사용
-} catch (IOException e) {
-    e.printStackTrace();
-}
-// fr.close() 자동 호출
-```
-
-### 여러 리소스
-```java
-try (
-    FileInputStream fis = new FileInputStream("input.txt");
-    FileOutputStream fos = new FileOutputStream("output.txt")
-) {
-    // 사용
-} catch (IOException e) {
-    e.printStackTrace();
-}
-```
-
----
-
-## 11-4. 예외 떠넘기기 (throws)
-
-### throws 키워드
-```java
-public void readFile(String path) throws FileNotFoundException {
-    FileReader fr = new FileReader(path);
-    // 예외를 호출한 쪽에서 처리하도록 떠넘김
-}
-
-// 호출하는 쪽에서 처리
-public void process() {
-    try {
-        readFile("data.txt");
-    } catch (FileNotFoundException e) {
-        System.out.println("파일을 찾을 수 없습니다");
+public class MainThreadExample {
+    public static void main(String[] args) {
+        // main() 메소드를 실행하는 스레드 = 메인 스레드
+        Thread mainThread = Thread.currentThread();
+        System.out.println("현재 스레드: " + mainThread.getName());  // main
     }
 }
 ```
 
-### 다중 throws
+### 싱글 스레드 vs 멀티 스레드
+
 ```java
-public void doSomething() throws IOException, SQLException {
-    // ...
+// 싱글 스레드 - 순차 실행
+public void singleThread() {
+    작업1();  // 완료 후
+    작업2();  // 실행
+    작업3();  // 실행
+}
+
+// 멀티 스레드 - 동시 실행
+public void multiThread() {
+    new Thread(() -> 작업1()).start();
+    new Thread(() -> 작업2()).start();
+    new Thread(() -> 작업3()).start();
+    // 세 작업이 동시에 실행
 }
 ```
 
 ---
 
-## 11-5. 예외 발생시키기 (throw)
+## 스레드 생성
 
-### throw 키워드
+### 방법 1: Thread 클래스 상속
+
 ```java
-public void setAge(int age) {
-    if (age < 0) {
-        throw new IllegalArgumentException("나이는 0 이상이어야 합니다");
+public class MyThread extends Thread {
+    @Override
+    public void run() {
+        // 스레드가 실행할 코드
+        for (int i = 0; i < 5; i++) {
+            System.out.println(getName() + ": " + i);
+            try {
+                Thread.sleep(500);  // 0.5초 대기
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
     }
-    this.age = age;
+}
+
+// 사용
+MyThread thread = new MyThread();
+thread.start();  // run()이 아닌 start() 호출!
+```
+
+### 방법 2: Runnable 인터페이스 구현 (권장)
+
+```java
+public class MyRunnable implements Runnable {
+    @Override
+    public void run() {
+        for (int i = 0; i < 5; i++) {
+            System.out.println(Thread.currentThread().getName() + ": " + i);
+        }
+    }
+}
+
+// 사용
+Thread thread = new Thread(new MyRunnable());
+thread.start();
+
+// 람다로 간단하게
+Thread thread2 = new Thread(() -> {
+    System.out.println("람다 스레드 실행");
+});
+thread2.start();
+```
+
+### Runnable이 권장되는 이유
+1. 다른 클래스 상속 가능 (Java는 단일 상속)
+2. 작업과 스레드 분리 → 재사용성 향상
+3. 람다 표현식 사용 가능
+
+---
+
+## 스레드 이름과 상태
+
+### 스레드 이름 설정
+
+```java
+Thread thread = new Thread(() -> {
+    System.out.println(Thread.currentThread().getName());
+});
+thread.setName("작업-스레드-1");
+thread.start();  // "작업-스레드-1" 출력
+```
+
+### 스레드 상태 (Thread State)
+
+| 상태 | 설명 |
+|------|------|
+| NEW | 스레드 객체 생성, 아직 start() 호출 전 |
+| RUNNABLE | 실행 중 또는 실행 대기 |
+| WAITING | 다른 스레드의 통지를 기다림 |
+| TIMED_WAITING | 일정 시간 대기 (sleep, wait) |
+| BLOCKED | 락 획득 대기 |
+| TERMINATED | 실행 완료 |
+
+```java
+Thread.State state = thread.getState();
+System.out.println("상태: " + state);
+```
+
+---
+
+## 동기화 (synchronized)
+
+### 동기화가 필요한 이유
+
+```java
+public class Counter {
+    private int count = 0;
+
+    // 동기화 없이 - 경쟁 상태 발생
+    public void increment() {
+        count++;  // 읽기 → 증가 → 저장 (3단계, 중간에 다른 스레드 끼어들 수 있음)
+    }
 }
 ```
 
-### 예외 다시 던지기
+### 메소드 동기화
+
 ```java
-public void process() {
-    try {
-        riskyOperation();
-    } catch (Exception e) {
-        System.out.println("로깅: " + e.getMessage());
-        throw e;  // 다시 던지기
+public class Counter {
+    private int count = 0;
+
+    // synchronized 키워드로 한 번에 한 스레드만 실행
+    public synchronized void increment() {
+        count++;
+    }
+
+    public synchronized int getCount() {
+        return count;
+    }
+}
+```
+
+### 블록 동기화
+
+```java
+public class Counter {
+    private int count = 0;
+    private final Object lock = new Object();
+
+    public void increment() {
+        // 특정 블록만 동기화 (성능상 유리)
+        synchronized (lock) {
+            count++;
+        }
+    }
+}
+```
+
+### 동기화 주의점
+- 동기화 범위는 최소화 (성능 저하 방지)
+- 데드락(교착 상태) 주의
+- 가능하면 `java.util.concurrent` 패키지 사용
+
+---
+
+## 스레드 풀 (ExecutorService)
+
+### 스레드 풀이 필요한 이유
+- 스레드 생성/소멸 비용 절감
+- 스레드 개수 제한으로 시스템 자원 관리
+- 작업 큐를 통한 효율적인 작업 분배
+
+### 스레드 풀 생성
+
+```java
+import java.util.concurrent.*;
+
+// 고정 크기 스레드 풀
+ExecutorService executor = Executors.newFixedThreadPool(4);
+
+// 캐시 스레드 풀 (필요시 생성, 유휴 시 제거)
+ExecutorService executor2 = Executors.newCachedThreadPool();
+
+// 단일 스레드
+ExecutorService executor3 = Executors.newSingleThreadExecutor();
+```
+
+### 작업 제출
+
+```java
+ExecutorService executor = Executors.newFixedThreadPool(2);
+
+// Runnable 작업 (리턴값 없음)
+executor.execute(() -> {
+    System.out.println("작업 실행: " + Thread.currentThread().getName());
+});
+
+// Callable 작업 (리턴값 있음)
+Future<Integer> future = executor.submit(() -> {
+    Thread.sleep(1000);
+    return 100;
+});
+
+// 결과 받기 (블로킹)
+Integer result = future.get();
+System.out.println("결과: " + result);
+
+// 종료
+executor.shutdown();
+```
+
+### 여러 작업 처리
+
+```java
+ExecutorService executor = Executors.newFixedThreadPool(3);
+
+List<Future<String>> futures = new ArrayList<>();
+for (int i = 0; i < 5; i++) {
+    int taskId = i;
+    Future<String> future = executor.submit(() -> {
+        Thread.sleep(1000);
+        return "작업 " + taskId + " 완료";
+    });
+    futures.add(future);
+}
+
+// 모든 결과 수집
+for (Future<String> future : futures) {
+    System.out.println(future.get());
+}
+
+executor.shutdown();
+```
+
+---
+
+## Spring에서의 활용
+
+### @Async 비동기 처리
+
+```java
+@Service
+public class EmailService {
+
+    @Async  // 별도 스레드에서 실행
+    public void sendEmail(String to, String content) {
+        // 시간이 오래 걸리는 이메일 발송
+        // 메인 스레드는 대기하지 않고 바로 리턴
+    }
+
+    @Async
+    public CompletableFuture<String> sendEmailWithResult(String to) {
+        // 결과가 필요한 경우
+        return CompletableFuture.completedFuture("전송 완료");
+    }
+}
+```
+
+### Spring의 스레드 풀 설정
+
+```java
+@Configuration
+@EnableAsync
+public class AsyncConfig {
+
+    @Bean
+    public Executor taskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(10);
+        executor.setQueueCapacity(500);
+        executor.setThreadNamePrefix("Async-");
+        executor.initialize();
+        return executor;
     }
 }
 ```
 
 ---
 
-## 11-6. 사용자 정의 예외
+## 정리
 
-### Custom Exception 만들기
-```java
-// Unchecked Exception (RuntimeException 상속)
-public class InvalidUserException extends RuntimeException {
-
-    public InvalidUserException() {
-        super("유효하지 않은 사용자입니다");
-    }
-
-    public InvalidUserException(String message) {
-        super(message);
-    }
-
-    public InvalidUserException(String message, Throwable cause) {
-        super(message, cause);
-    }
-}
-```
-
-### 사용
-```java
-public void validateUser(User user) {
-    if (user == null) {
-        throw new InvalidUserException("사용자가 null입니다");
-    }
-    if (user.getName() == null || user.getName().isEmpty()) {
-        throw new InvalidUserException("사용자 이름이 없습니다");
-    }
-}
-
-// 호출
-try {
-    validateUser(user);
-} catch (InvalidUserException e) {
-    System.out.println("검증 실패: " + e.getMessage());
-}
-```
-
----
-
-## 11-7. 예외 처리 Best Practices
-
-### 1. 구체적인 예외 잡기
-```java
-// Bad
-catch (Exception e) { }
-
-// Good
-catch (FileNotFoundException e) { }
-```
-
-### 2. 예외 무시하지 않기
-```java
-// Bad
-catch (Exception e) { }
-
-// Good
-catch (Exception e) {
-    logger.error("에러 발생", e);
-}
-```
-
-### 3. 예외 메시지에 정보 담기
-```java
-throw new IllegalArgumentException(
-    "유효하지 않은 사용자 ID: " + userId
-);
-```
-
-### 4. checked vs unchecked 선택
-- **Checked**: 호출자가 복구할 수 있는 경우
-- **Unchecked**: 프로그래밍 오류 (권장 - Spring 스타일)
-
----
-
-## 실무 포인트
-> Spring에서는 대부분 **RuntimeException** 사용.
-> `@ExceptionHandler`로 전역 예외 처리.
-> checked exception은 거의 안 씀.
-
----
-
-## 예제 파일
-- `examples/TryCatchExample.java` - 기본 예외 처리
-- `examples/ThrowExample.java` - throw/throws
-- `examples/CustomException.java` - 사용자 정의 예외
+| 개념 | 설명 |
+|------|------|
+| Thread | 프로세스 내 실행 단위 |
+| Runnable | 작업 정의 인터페이스 |
+| synchronized | 동기화로 경쟁 상태 방지 |
+| ExecutorService | 스레드 풀 관리 |
+| Future | 비동기 작업 결과 |
+| @Async (Spring) | 간편한 비동기 처리 |
 
 ---
 
 ## 다음 단계
-→ Chapter 15: 컬렉션 자료구조
+→ Chapter 12: 컬렉션 자료구조

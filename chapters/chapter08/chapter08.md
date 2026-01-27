@@ -328,4 +328,4 @@ public class JpaUserRepository implements UserRepository {
 ---
 
 ## 다음 단계
-→ Chapter 11: 예외 처리
+→ Chapter 09: 제네릭

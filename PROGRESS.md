@@ -232,9 +232,9 @@ chapters/
 - [ ] 다중 인터페이스 구현
 - [ ] 다형성
 
-### Chapter 13. 제네릭
-> **doc**: `chapters/chapter13/chapter13.md`
-> **examples**: `chapters/chapter13/examples/`
+### Chapter 09. 제네릭
+> **doc**: `chapters/chapter09/chapter09.md`
+> **examples**: `chapters/chapter09/examples/`
 > - `GenericBox.java` - 제네릭 클래스
 > - `GenericMethod.java` - 제네릭 메소드
 > - `WildcardExample.java` - 와일드카드
@@ -245,9 +245,26 @@ chapters/
 - [ ] 제한된 타입 파라미터 (<T extends 상위타입>)
 - [ ] 와일드카드 타입 (<?>, <? extends>, <? super>)
 
-### Chapter 14. 멀티 스레드
-> **doc**: `chapters/chapter14/chapter14.md`
-> **examples**: `chapters/chapter14/examples/`
+---
+
+## STEP 3. 실무 필수 (필수)
+
+### Chapter 10. 예외 처리
+> **doc**: `chapters/chapter10/chapter10.md`
+> **examples**: `chapters/chapter10/examples/`
+> - `TryCatchExample.java` - 기본 예외 처리
+> - `ThrowExample.java` - throw/throws
+> - `CustomException.java` - 사용자 정의 예외
+
+- [ ] 예외와 예외 클래스
+- [ ] 예외 처리 코드 (try-catch-finally)
+- [ ] 예외 종류에 따른 처리
+- [ ] 예외 떠넘기기 (throws)
+- [ ] 사용자 정의 예외
+
+### Chapter 11. 멀티 스레드
+> **doc**: `chapters/chapter11/chapter11.md`
+> **examples**: `chapters/chapter11/examples/`
 > - `ThreadBasic.java` - 스레드 기본
 > - `RunnableExample.java` - Runnable 구현
 > - `SynchronizedExample.java` - 동기화
@@ -260,26 +277,9 @@ chapters/
 - [ ] 동기화 (synchronized)
 - [ ] 스레드 풀 (ExecutorService)
 
----
-
-## STEP 3. 실무 필수 (필수)
-
-### Chapter 11. 예외 처리
-> **doc**: `chapters/chapter11/chapter11.md`
-> **examples**: `chapters/chapter11/examples/`
-> - `TryCatchExample.java` - 기본 예외 처리
-> - `ThrowExample.java` - throw/throws
-> - `CustomException.java` - 사용자 정의 예외
-
-- [ ] 예외와 예외 클래스
-- [ ] 예외 처리 코드 (try-catch-finally)
-- [ ] 예외 종류에 따른 처리
-- [ ] 예외 떠넘기기 (throws)
-- [ ] 사용자 정의 예외
-
-### Chapter 15. 컬렉션 자료구조
-> **doc**: `chapters/chapter15/chapter15.md`
-> **examples**: `chapters/chapter15/examples/`
+### Chapter 12. 컬렉션 자료구조
+> **doc**: `chapters/chapter12/chapter12.md`
+> **examples**: `chapters/chapter12/examples/`
 > - `ListExample.java` - ArrayList 사용
 > - `SetExample.java` - HashSet 사용
 > - `MapExample.java` - HashMap 사용
@@ -289,9 +289,9 @@ chapters/
 - [ ] Set 컬렉션 (HashSet)
 - [ ] Map 컬렉션 (HashMap)
 
-### Chapter 16. 람다식
-> **doc**: `chapters/chapter16/chapter16.md`
-> **examples**: `chapters/chapter16/examples/`
+### Chapter 13. 람다식
+> **doc**: `chapters/chapter13/chapter13.md`
+> **examples**: `chapters/chapter13/examples/`
 > - `LambdaBasic.java` - 람다 기본
 > - `FunctionalInterface.java` - 함수형 인터페이스
 > - `MethodReference.java` - 메소드 참조
@@ -301,9 +301,9 @@ chapters/
 - [ ] 리턴값이 있는 람다식
 - [ ] 메소드 참조
 
-### Chapter 17. 스트림 요소 처리
-> **doc**: `chapters/chapter17/chapter17.md`
-> **examples**: `chapters/chapter17/examples/`
+### Chapter 14. 스트림 요소 처리
+> **doc**: `chapters/chapter14/chapter14.md`
+> **examples**: `chapters/chapter14/examples/`
 > - `StreamBasic.java` - 기본 사용
 > - `StreamCollect.java` - 수집 연산
 > - `StreamPractice.java` - 실무 패턴
@@ -315,8 +315,11 @@ chapters/
 
 ---
 
-## STEP 4. Spring Boot
+## STEP 4. Spring Boot + 실전 프로젝트 (카톨릭 기도앱 백엔드)
 > **doc**: `chapters/spring-boot/spring-boot.md`
+>
+> 카톨릭 기도앱 백엔드를 직접 만들면서 Spring Boot를 학습합니다.
+> 각 항목을 실제 프로젝트에 적용하며 진행합니다.
 
 ### Spring 기초
 - [ ] Spring과 Spring Boot 차이
@@ -370,6 +373,21 @@ chapters/
 - [ ] 로그인/로그아웃 구현
 - [ ] 토큰 발급/검증
 
+### 파일 처리
+- [ ] MultipartFile (파일 업로드)
+- [ ] 파일 저장/조회
+- [ ] 이미지 리사이징 (선택)
+
+### 푸시 알림
+- [ ] Firebase Cloud Messaging (FCM) 설정
+- [ ] FCM 토큰 관리
+- [ ] 푸시 알림 발송
+
+### 캐싱
+- [ ] Redis 기초
+- [ ] Spring Data Redis
+- [ ] 캐시 적용 (@Cacheable)
+
 ### 배포
 - [ ] AWS EC2 또는 NCP
 - [ ] Docker 기초
@@ -378,18 +396,9 @@ chapters/
 
 ---
 
-## STEP 5. 실전 프로젝트
-
-> 카톨릭 기도앱 백엔드
-
----
-
 ## 나중에 필요할 때
 
 | 주제 | 언제 |
 |------|------|
-| Ch 09 중첩 클래스 | 콜백, 이벤트 처리할 때 |
-| Ch 18 파일 I/O | 파일 업로드/다운로드 |
-| WebSocket | 실시간 기능 만들 때 |
-| FCM | 푸시 알림 만들 때 |
-| Redis | 캐싱 필요할 때 |
+| 중첩 클래스 | 콜백, 이벤트 처리할 때 |
+| WebSocket | 실시간 채팅 기능 만들 때 |
